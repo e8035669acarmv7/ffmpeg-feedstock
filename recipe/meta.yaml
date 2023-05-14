@@ -45,6 +45,7 @@ requirements:
   host:
     - bzip2
     - freetype
+    - expat
     - fontconfig
     - gnutls  # [not win]
     - libiconv  # [osx]

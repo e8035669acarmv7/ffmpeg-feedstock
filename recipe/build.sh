@@ -77,6 +77,7 @@ if [[ "${target_platform}" == "win-64" ]]; then
   export V=1
 elif [[ "${target_platform}" == linux-* ]]; then
   PKG_CONFIG="${BUILD_PREFIX}/bin/pkg-config"
+  export PKG_CONFIG_PATH=${PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH}
   extra_args="${extra_args} --enable-gnutls"
   extra_args="${extra_args} --enable-libmp3lame"
   extra_args="${extra_args} --enable-libvpx"
