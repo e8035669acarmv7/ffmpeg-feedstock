@@ -135,6 +135,7 @@ fi
         --enable-libfreetype \
         --enable-libfontconfig \
         --enable-libopenh264 \
+        --enable-libdav1d \
         ${extra_args} \
         --enable-libaom \
         --enable-libsvtav1 \
