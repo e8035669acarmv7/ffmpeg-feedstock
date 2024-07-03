@@ -90,7 +90,7 @@ elif [[ "${target_platform}" == osx-* ]]; then
   if [[ "${target_platform}" == osx-arm64 ]]; then
     extra_args="${extra_args} --enable-neon"
   else
-    extra_args="${extra_args} --disable-videotoolbox"
+    extra_args="${extra_args} --enable-videotoolbox"
   fi
   extra_args="${extra_args} --enable-gnutls"
   extra_args="${extra_args} --enable-libmp3lame"
@@ -101,6 +101,13 @@ elif [[ "${target_platform}" == osx-* ]]; then
   # why this flag needs to be removed.
   sed -i.bak s/-Wl,-single_module// configure
   PKG_CONFIG="${BUILD_PREFIX}/bin/pkg-config"
+fi
+
+# enable OpenVINO to optimize AI tasks of avfilter component
+if [[ "${target_platform}" == linux-ppc64le ]] || [[ "${target_platform}" == win-64 ]]; then
+    extra_args="${extra_args} --disable-libopenvino"
+else
+    extra_args="${extra_args} --enable-libopenvino"
 fi
 
 if [[ "${license_family}" == "gpl" ]]; then
@@ -133,6 +140,7 @@ fi
         --enable-demuxer=dash \
         --enable-hardcoded-tables \
         --enable-libfreetype \
+        --enable-libharfbuzz \
         --enable-libfontconfig \
         --enable-libopenh264 \
         --enable-libdav1d \

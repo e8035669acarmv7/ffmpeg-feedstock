@@ -1,4 +1,4 @@
-{% set version = "6.0.0" %} # semver: (x.y.z)
+{% set version = "7.0.1" %} # semver: (x.y.z)
 {% set x,y,z = version.split('.') %}
 {% set version_ffmpeg_style = x ~ '.' ~ y if z == "0" else version %}
 
@@ -8,18 +8,22 @@ package:
 
 source:
   url: https://ffmpeg.org/releases/ffmpeg-{{ version_ffmpeg_style }}.tar.gz
-  sha256: f4ccf961403752c93961927715f524576d1f4dd02cd76d8c76aed3bbe6686656
+  sha256: e273eae00b4f833595654c1ee2b2349240e0332f9dbf3c4cadd39df9819ff052
   patches:
     - patches/pkgconfig_generate_windows_llvm.patch  # [win]
-    # https://github.com/FFmpeg/FFmpeg/commit/814178f92647be2411516bbb82f48532373d2554
-    - patches/table_gen_fix_build_error.patch
     # I don't really think that the original changes made at FFmpeg make sense for
     # conda-forge's conmpiler stack on windows
     # https://github.com/FFmpeg/FFmpeg/commit/f8d6d0fbf12b3247a37885cd0a5cd32ddc1f01b3
     # https://github.com/conda-forge/ffmpeg-feedstock/pull/193#issuecomment-1484476264
     - patches/0001-Revert-compat-Use-instead-of-for-rc.exe-options.patch
 
-{% set build = 4 %}
+    # needed for qtwebengine
+    - patches/add-av_stream_get_first_dts-for-chromium.patch
+
+    # Include time_internal header for windows to correctly locate localtime_r and gmtime_r
+    - patches/include_time_internal_header.patch
+
+{% set build = 3 %}
 {% if license_family == 'gpl' %}
     {% set build = build + 100 %}
 {% endif %}
@@ -31,11 +35,14 @@ build:
   # seems to be major version compatibility
   # https://abi-laboratory.pro/tracker/timeline/ffmpeg/
     - {{ pin_subpackage('ffmpeg', max_pin='x') }}
+  ignore_run_exports_from:
+    - glib
 
 requirements:
   build:
     - {{ compiler("c") }}
     - {{ compiler("cxx") }}
+    - {{ stdlib("c") }}
     # clangxx is required for support of the nvidia encoders and decoders
     - clangxx  # [linux64]
     - autotools_clang_conda  # [win]
@@ -52,10 +59,13 @@ requirements:
   host:
     - bzip2
     - freetype
-    - expat
+    - harfbuzz
+    # glib is only required to find harfbuzz with pkg-config at compilation time
+    # but it is not directly linked to the system
+    - glib
     - fontconfig
     - gnutls  # [not win]
-    - libiconv  # [osx]
+    - libiconv
     - libxml2
     {% if license_family == 'gpl' %}
     - x264
@@ -71,8 +81,12 @@ requirements:
     - svt-av1
     - ffnvcodec-headers  # [linux64 or win]
     - libopus
+    - libopenvino-dev    # [not ppc64le and not win]
     - libass  # [not win]
     - dav1d
+    - xz
+    - libxcb       # [linux]
+    - xorg-libx11  # [linux]
 
 {% set grep = "grep" %}  # [unix]
 {% set grep = "findstr" %}  # [win]
@@ -105,24 +119,27 @@ test:
     - if not exist %PREFIX%\\Library\\lib\\{{ each_ffmpeg_lib }}.lib exit 1  # [win]
     {% endfor %}
     # Windows dynamic libraries have a suffix
+    # This is useful to keep since it helps detect ABI breakage
     {% set ffmpeg_libs = [
-        "avdevice-60",
-        "swresample-4",
-        "avfilter-9",
-        "avcodec-60",
-        "avformat-60",
-        "swscale-7",
-        "avutil-58",
+        "avdevice-61",
+        "swresample-5",
+        "avfilter-10",
+        "avcodec-61",
+        "avformat-61",
+        "swscale-8",
+        "avutil-59",
     ] %}
     {% for each_ffmpeg_lib in ffmpeg_libs %}
+    - echo "Checking for existance of {{ each_ffmpeg_lib }}.dll"             # [win]
     - if not exist %PREFIX%\\Library\\bin\\{{ each_ffmpeg_lib }}.dll exit 1  # [win]
     {% endfor %}
     {%- if license_family == 'gpl' %}
     - ffmpeg -hide_banner -buildconf | {{ grep }} "enable-gpl"
     - ffmpeg -hide_banner -codecs | {{ grep }} "libx264"
     - ffmpeg -hide_banner -codecs | {{ grep }} "libx265"
-    - test -f $PREFIX/lib/libpostproc${SHLIB_EXT}         # [unix]
-    - if not exist %PREFIX%\\Library\\lib\\postproc.lib exit 1  # [win]
+    - test -f $PREFIX/lib/libpostproc${SHLIB_EXT}                  # [unix]
+    - if not exist %PREFIX%\\Library\\lib\\postproc.lib exit 1     # [win]
+    - if not exist %PREFIX%\\Library\\bin\\postproc-58.dll exit 1  # [win]
     # https://trac.ffmpeg.org/wiki/Null
     - ffmpeg -hide_banner -f lavfi -i nullsrc=s=256x256:d=8 -vcodec libx264 -f null -
     - ffmpeg -hide_banner -f lavfi -i nullsrc=s=256x256:d=8 -vcodec libx265 -f null -
@@ -133,6 +150,7 @@ test:
     - test ! $(ffmpeg -hide_banner -codecs | grep "libx265")     # [unix]
     - test ! -f $PREFIX/lib/libpostproc${SHLIB_EXT}              # [unix]
     - if exist %PREFIX%\\Library\\lib\\postproc.lib exit 1       # [win]
+    - if exist %PREFIX%\\Library\\bin\\postproc-58.dll exit 1    # [win]
     {%- endif %}
     # Verify nvidia codecs on linux
     {% set nvcodecs = [
@@ -147,8 +165,7 @@ test:
         "vp9_cuvid"
     ] %}
     {% for nvcodec in nvcodecs %}
-    # Make sure to include a space in there to ensure we get an exact match
-    - ffmpeg -hide_banner -codecs | {{ grep }} " {{ nvcodec }} "  # [linux64 or win]
+    - ffmpeg -hide_banner -codecs | {{ grep }} "{{ nvcodec }}"  # [linux64 or win]
     {% endfor %}
     # https://trac.ffmpeg.org/wiki/Null
     - ffmpeg -hide_banner -f lavfi -i nullsrc=s=256x256:d=8 -vcodec libopenh264 -f null -
