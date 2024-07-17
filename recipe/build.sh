@@ -103,7 +103,7 @@ elif [[ "${target_platform}" == osx-* ]]; then
 fi
 
 # enable OpenVINO to optimize AI tasks of avfilter component
-if [[ "${target_platform}" == linux-ppc64le ]] || [[ "${target_platform}" == win-64 ]]; then
+if [[ "${target_platform}" == linux-ppc64le ]] || [[ "${target_platform}" == win-64 ]] || [[ "${target_platform}" == linux-armv7l ]]; then
     extra_args="${extra_args} --disable-libopenvino"
 else
     extra_args="${extra_args} --enable-libopenvino"
