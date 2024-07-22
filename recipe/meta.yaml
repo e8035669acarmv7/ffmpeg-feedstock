@@ -81,7 +81,7 @@ requirements:
     - svt-av1
     - ffnvcodec-headers  # [linux64 or win]
     - libopus
-    - libopenvino-dev    # [not ppc64le and not win]
+    - libopenvino-dev    # [not ppc64le and not win and not armv7l]
     - libass  # [not win]
     - dav1d
     - xz

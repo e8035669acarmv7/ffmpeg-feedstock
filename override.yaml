@@ -1,5 +1,8 @@
 license_family:
 - lgpl
-aom:
-- '3.6'
+zlib:
+- '1.2'
+harfbuzz:
+- '8'
+- '9'
 
