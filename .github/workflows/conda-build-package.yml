@@ -5,6 +5,7 @@ on: push
 jobs:
   build-linux:
     strategy:
+      fail-fast: true
       matrix:
         include:
         - name: linux_armv7l_config.yaml
